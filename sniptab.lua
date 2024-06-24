@@ -357,6 +357,36 @@ end
 function preInsertNewline(view)
 	clear()
 end
+-- the following should work but doesnt: 
+
+function prePageUp(view)
+	clear()
+end
+function prePageDown(view)
+	clear()
+end
+function preCursorStart(view)
+	clear()
+end
+function preCursorEnd(view)
+	clear()
+end
+function preEnd(view)
+	clear()
+end
+function preEndOfLine(view)
+	clear()
+end
+function preStart(view)
+	clear()
+end
+function preStartOfLine(view)
+	clear()
+end
+function preStartOfText(view)
+	clear()
+end
+
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~
 -- helper functions

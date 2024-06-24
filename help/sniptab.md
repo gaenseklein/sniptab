@@ -11,6 +11,10 @@ a simple snippets-plugin to let you insert pre-configured snippets on the cursor
 - arrowkeys, escape and enter leaves the current snippet (you cant jump anymore on tab)
 - changing windows leaves the current snippet
 
+alternatively you can open your micro-terminal with ctrl+e and type `snip $word` where $word is the 
+shortcut for your snippet - example `snip div` to insert a div at current cursor-position
+
+
 ## snippet-definitions
 - a snippet-file for the filetype is placed in the "snippets"-directory of the plugin
 - a line starting with "snippet" starts a new snippet
@@ -37,3 +41,4 @@ the whole line could look something like this:
 	"Tab": "lua:sniptab.on_tab|Autocomplete|IndentSelection|InsertTab"
 ```
 
+alternatively you can add a shortcut to open the terminal prefixed with the "snip" keyword by: 
