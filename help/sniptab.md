@@ -34,6 +34,6 @@ afterwards add sniptab.on_tab to your bindings.json (normaly in `~/.config/micro
 prefferably in the front.
 the whole line could look something like this:
 ```
-	"Tab": "lua:sniptab_on_tab|Autocomplete|IndentSelection|InsertTab"
+	"Tab": "lua:sniptab.on_tab|Autocomplete|IndentSelection|InsertTab"
 ```
 
