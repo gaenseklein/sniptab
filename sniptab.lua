@@ -651,6 +651,47 @@ end
 -- end of emmet
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- edit snippets from within editor
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+local edit_snippet_pane = nil
+
+function open_snippet_file(bp, args)
+	local filetype = nil
+	-- if args~=nil and args[1] then
+		-- filetype = args[1]
+	-- else
+		filetype = bp.Buf.Settings["filetype"] 
+	-- end
+	local base_path = '~/.config/micro/plug/sniptab/snippets/'
+	local path = base_path .. filetype .. '.snippets'
+	local target_buff = buffer.NewBufferFromFile(path)
+	if edit_snippet_pane == nil then 
+		edit_snippet_pane = micro.CurPane():VSplitIndex(target_buff, true)	
+	else
+		edit_snippet_pane:OpenBuffer(target_buff)
+		-- micro.CurPane():NextSplit()
+	end
+end
+
+-- Close current
+function preQuit(bp)	
+	if bp == edit_snippet_pane then 
+		edit_snippet_pane = nil
+	end
+end
+-- Close all
+function preQuitAll(bp)
+	edit_snippet_pane = nil
+end
+
+
+function preSave(bp)
+	if bp == edit_snippet_pane then
+		-- consoleLog('pre-saving snippet pane')
+	snippets_by_filetype = {}	
+	end
+end
 
 function list_words(bp)
 	local snippets
@@ -672,6 +713,7 @@ function init()
     -- Insert a snippet
     config.MakeCommand("snip", snip_from_terminal, config.NoComplete)
     config.MakeCommand("emmet", emmet, config.NoComplete)
+    config.MakeCommand("edit-snip", open_snippet_file, config.NoComplete)
     
     config.AddRuntimeFile("sniptab", config.RTHelp, "help/sniptab.md")
     -- config.AddRuntimeFile("sniptab", RTEmmetAbbr, "emmet/html.emmet")
