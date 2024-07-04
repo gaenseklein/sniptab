@@ -1,4 +1,4 @@
-VERSION = "1.1.0"
+VERSION = "1.3.0"
 
 local micro = import("micro")
 local buffer = import("micro/buffer")
@@ -333,7 +333,7 @@ end
 
 local emmet_abbr = {}
 
-function parse_emmet_element(str)
+function parse_emmet_element(str, pre_tag)
 	local char = ""
 	local tag = {
 		class = "",
@@ -345,6 +345,7 @@ function parse_emmet_element(str)
 		multiply_count = "",
 		closing_tag = true
 	}
+	if pre_tag ~= nil then tag = pre_tag end
 	local target = "tag"
 	for pos = 1, #str do
 		char = string.sub(str,pos,pos)
@@ -357,6 +358,9 @@ function parse_emmet_element(str)
 	    	target = "id" 
 	    elseif char == "[" then 
 	    	target = "attribute"
+	    	if string.len(tag[target]) > 1 then 
+	    		tag[target] = tag[target] .. " "
+	    	end
 	    elseif char == "{" then 
 	    	target = "inner"
 	    elseif char == "}" or char == "]" then
@@ -371,11 +375,7 @@ function parse_emmet_element(str)
 	    	-- consoleLog({target=target,char=char,tag=tag},"parsing element...",3)
 	    	tag[target] = tag[target] .. char
 	    end
-	end	
-	-- if tag.tag == "" then tag.tag = "div" end
-	-- TODO: defaulting span on em>.class
-	-- TODO: defaulting li on ul>.class
-	-- TODO: defaulting to tr / td on table, tr, td
+	end		
 	-- consoleLog(tag, "tag",2)
 	return tag
 end
@@ -389,9 +389,24 @@ function parse_emmet_raw_string(str)
 
 	local new_object
 	local char = ""
+	local block_parsing = false
+	local blocker = nil
 	for pos = 1, #str do
 		char = string.sub(str,pos,pos)
-		if char == ">" then 	    
+		-- consoleLog({char=char,pos=pos,raw=act.raw},'iteration',2)
+		if char == blocker then 
+			-- consoleLog({char=char,pos=pos,raw=act.raw},'blocker end found',2)
+			block_parsing = false
+			act.raw = act.raw .. char			
+		elseif block_parsing then 
+			act.raw = act.raw .. char			
+		elseif char == "'" or char == '"' or char == "{" then
+			-- consoleLog({char=char,pos=pos,raw=act.raw},'blocker found',2)
+			blocker = char
+			if char == "{" then blocker ="}" end
+			block_parsing = true
+			act.raw = act.raw .. char			
+		elseif char == ">" then 	    
 			new_object = {raw="",children={},parent=act}
 			table.insert(act.children, new_object)
 			act = new_object
@@ -449,9 +464,12 @@ function create_emmet_tag_nodes(node)
 			node.emmet.tag = "div"
 		end
     end
-    -- if emmet_abbr[node.emmet.tag]~=nil then
-		-- 
-    -- end
+    local abbr = load_emmet_abreviations()
+    if node.emmet ~= nil and abbr[node.emmet.tag]~=nil then
+    	local abbr_raw = abbr[node.emmet.tag]
+    	node.emmet.tag = ""
+		node.emmet = parse_emmet_element(abbr_raw, node.emmet)
+    end
     for i=1, #node.children do
         create_emmet_tag_nodes(node.children[i])
     end	    
@@ -647,6 +665,41 @@ function init_emmet_abreviations()
 	consoleLog(emmet_table,"emmet table",2)
 end
 
+local emmet_abbreviations = nil
+
+function load_emmet_abreviations()
+	if emmet_abbreviations ~= nil then
+		return emmet_abbreviations 
+	end
+	local emmet_file = config.ReadRuntimeFile(RTEmmetAbbr, "html")
+	local emmet_table = {}
+	local key = nil
+	for line in string.gmatch(emmet_file, "(.-)\r?\n") do
+		if key == nil then 
+			key = line
+		else
+			emmet_table[key]=line
+			key = nil
+		end
+	end	
+	emmet_abbreviations = emmet_table 
+	return emmet_table
+end
+
+function create_emmet_abbreviations_map()
+	local txt = ""
+	local abreviations = load_emmet_abreviations()
+	for abr,raw in pairs(abreviations) do
+		local node = parse_emmet_raw_string(raw)
+		local html = create_emmet_snippet_html(node.children[1])
+		txt = txt .. abr .. "\n"
+		txt = txt .. raw .. "\n"
+		txt = txt .. html .. "\n"
+		txt = txt .. "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+		txt = txt .. "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+	end
+	consoleLog({txt=txt},map)
+end
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- end of emmet
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -714,12 +767,15 @@ function init()
     config.MakeCommand("snip", snip_from_terminal, config.NoComplete)
     config.MakeCommand("emmet", emmet, config.NoComplete)
     config.MakeCommand("edit-snip", open_snippet_file, config.NoComplete)
+    config.MakeCommand("emmet-map", create_emmet_abbreviations_map, config.NoComplete)
     
     config.AddRuntimeFile("sniptab", config.RTHelp, "help/sniptab.md")
     -- config.AddRuntimeFile("sniptab", RTEmmetAbbr, "emmet/html.emmet")
     config.AddRuntimeFilesFromDirectory("sniptab", RTSnippets, "snippets", "*.snippets")
     config.AddRuntimeFilesFromDirectory("sniptab", RTEmmetAbbr, "emmet", "*.emmet")
 
+    config.TryBindKey("Alt-e", "command-edit:emmet ", false)
+    
 	-- init_emmet_abreviations()
     -- config.TryBindKey("Alt-w", "lua:snippets.Next", false)
     -- config.TryBindKey("Alt-a", "lua:snippets.Accept", false)

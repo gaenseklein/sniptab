@@ -1,8 +1,10 @@
 # sniptab
 
-a simple snippets-plugin to let you insert pre-configured snippets on the cursor location. 
+a snippets-plugin to let you insert pre-configured snippets on the cursor location. 
 
 ## usage
+
+### normal snippets 
 
 - write your snippet-shortcut
 - press tab (or whatever you have configured to use snippet-insert for)
@@ -14,6 +16,15 @@ a simple snippets-plugin to let you insert pre-configured snippets on the cursor
 alternatively you can open your micro-terminal with ctrl+e and type `snip $word` where $word is the 
 shortcut for your snippet - example `snip div` to insert a div at current cursor-position
 
+### emmet
+
+- open your micro-terminal (`ctrl+e` by default)
+- type your emmet preceded by "emmet " - for example:
+	`>emmet button.load>img`
+- if your emmet contains spaces or quotes you have to put it inside quotes (use single outside and double inside)
+- emmet is still not fully ready but works in simpler cases
+- emmet only works for html right now 
+- for further help with emmet see [emmet help page](emmet.md)
 
 ## snippet-definitions
 - a snippet-file for the filetype is placed in the "snippets"-directory of the plugin
