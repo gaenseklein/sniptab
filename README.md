@@ -21,10 +21,13 @@ but as the flow-logik is different for my use-case its nearly a complete rewrite
 - arrowkeys, escape and enter leaves the current snippet (you cant jump anymore on tab)
 - changing windows leaves the current snippet
 
+## editing snippets
+you can now edit your snippets from within micro, just enter `>edit-snip` in micro command prompt and it opens a pane 
+with the snippet-files corresponding to your current filetype
+
 ## emmet
-to use "emmet"-style open your micro prompt (`ctrl + e by default`) and type 
-your emmet-string preceded by "emmet". 
-remember to put your emmet-string in quotes if you use spaces in your emmet string
+to use "emmet"-style open your micro command prompt (`ctrl + e by default`) and type your emmet-string preceded by "emmet". 
+remember to put your emmet-string in (single) quotes if you use spaces or  (double) quotes in your emmet string
 ### what works of [emmet sheets](https://docs.emmet.io/cheat-sheet/):
 - child `>`
 - sibling `+`
@@ -36,13 +39,13 @@ remember to put your emmet-string in quotes if you use spaces in your emmet stri
 - attributes `[]`
 - text `{}`
 - implicit tag names `ul->li, em->span, table->row->col, div as default`
+- simple abbreviations
 
 ### what not works of emmet (for now)
 - grouping `()`
-- abbreviations
+- recursive abbreviations
 
 ### known issues
-- quotes are not respected to escape `()` or `{}`
 - quotes are limited to double-quotes right now
 - only first carret-pos works, after it looses snippet for unknown reason
 - inner text is preceded by space/tab char 

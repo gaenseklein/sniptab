@@ -770,6 +770,7 @@ function init()
     config.MakeCommand("emmet-map", create_emmet_abbreviations_map, config.NoComplete)
     
     config.AddRuntimeFile("sniptab", config.RTHelp, "help/sniptab.md")
+    config.AddRuntimeFile("emmet", config.RTHelp, "help/emmet.md")
     -- config.AddRuntimeFile("sniptab", RTEmmetAbbr, "emmet/html.emmet")
     config.AddRuntimeFilesFromDirectory("sniptab", RTSnippets, "snippets", "*.snippets")
     config.AddRuntimeFilesFromDirectory("sniptab", RTEmmetAbbr, "emmet", "*.emmet")
