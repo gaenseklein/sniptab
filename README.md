@@ -47,8 +47,12 @@ remember to put your emmet-string in (single) quotes if you use spaces or  (doub
 
 ### known issues
 - quotes are limited to double-quotes right now
-- only first carret-pos works, after it looses snippet for unknown reason
 - inner text is preceded by space/tab char 
+
+## jsdoc-emmet
+jsdoc-emmets are also implemented to let you create corresponding jsdoc-descriptions of your functions blazingly fast. 
+it followes the same logic and structure as emmet for html, although there are fewer "symbols". 
+see [jsdoc help](jsdoc.md) for a complete style-sheet 
 
 ## install 
 install sniptab to your micro, for example go to your plugin directory of micro and clone this repo:

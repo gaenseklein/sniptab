@@ -1,4 +1,4 @@
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 local micro = import("micro")
 local buffer = import("micro/buffer")
@@ -154,7 +154,8 @@ local function CursorWord(bp)
 	return result
 end
 
-local function clear()
+local function clear(cleared_by)
+	-- consoleLog(current_snippet, "current snippet gets cleared by" .. cleared_by,2)
 	current_snippet = nil
 end
 
@@ -218,7 +219,7 @@ function move_to_current_snippet(bp)
 	-- consoleLog({snippet = current_snippet, curs_x= bp.Cursor.X,curs_y= bp.Cursor.Y}, "move to current snippet", 5)
 	current_snippet.act_position_index = current_snippet.act_position_index + 1
 	if current_snippet.relative_positions[current_snippet.act_position_index] == nil then
-			clear()
+			clear("move_to_current_snippet relative-check")
 			return false
 	end
 	
@@ -235,7 +236,7 @@ function move_to_current_snippet(bp)
 	-- consoleLog({x=x,y=y,act_line=get_act_line(bp), act_cursor_x=bp.Cursor.X, act_cursor_y=bp.Cursor.Y},"result moveto",5)
 	set_cursor_pos(bp, x, y, act_p.filler_length)
 	if current_snippet.relative_positions[current_snippet.act_position_index+1] == nil then
-		clear()
+		clear("move_to_current_snippet next check")
 	end
 	return true
 end
@@ -267,7 +268,7 @@ end
 
 function on_tab(bp, args)
 	if bp ~= current_bp then
-		clear()
+		clear("on_tab bp no current_bp")
 	end
 	current_bp = bp
 	local activated = false
@@ -322,7 +323,7 @@ function on_first_tab(bp, pre_word)
 	write_snippet_to_buf(bp, cursor_x, cursor_y, word, insert_string)
 	move_to_current_snippet(bp)
 	-- if current_snippet ~= nil and current_snippet.relative_positions[current_snippet.act_position_index+1] == nil then
-		-- clear()
+		-- clear("not used")
 	-- end
 	return true
 end
@@ -380,7 +381,7 @@ function parse_emmet_element(str, pre_tag)
 	return tag
 end
 
-function parse_emmet_raw_string(str)
+function parse_emmet_raw_string(str, jsdoc)
 	local root = {children = {}}
 	local act = {raw="", children={},parent=root}
 	root.children[1]=act	
@@ -422,10 +423,10 @@ function parse_emmet_raw_string(str)
 		    new_object = {raw="",children={}, parent=target_parent}
 		    table.insert(target_parent.children, new_object)
 		    act = new_object
-		elseif char == "(" then
+		elseif char == "(" and jsdoc == nil then
 			node_group_parent_i = node_group_parent_i + 1
 			node_group_parent[node_group_parent_i] = act.parent
-		elseif char == ")" then
+		elseif char == ")" and jsdoc == nil then
 			act = node_group_parent[node_group_parent_i]
 			node_group_parent_i = node_group_parent_i - 1
 			
@@ -436,6 +437,10 @@ function parse_emmet_raw_string(str)
 					act.raw_short = act.raw
 				end
 			end
+		elseif jsdoc and char == "," then
+		    new_object = {raw="",children={},parent=act.parent}
+		    table.insert(act.parent.children, new_object)
+		    act = new_object
 		else 
 			act.raw = act.raw .. char
 		end		
@@ -645,6 +650,7 @@ function emmet(bp, args)
 		insert_string = insert_string .."\n".. whiteline .. current_snippet.code_lines[i]
 	end
 	write_snippet_to_buf(bp, cursor_x, cursor_y, word, insert_string)
+	current_bp = bp
 	move_to_current_snippet(bp)
 	
 end
@@ -703,6 +709,287 @@ end
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- end of emmet
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- jsdoc-emmet
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+function parse_jsdoc_element(str)
+	local char = ""
+	local el = {
+		name = "",
+		type = "",
+		description = "",
+		multitype = false,
+		isArray = false,
+		optional = false,
+		repeating = false,
+		callback = false,
+		typedef = false
+	}
+	local target = "name"
+	local blocking = false
+	for pos = 1, #str do
+		char = string.sub(str,pos,pos)
+		if blocking and char ~= '"' then
+			el[target] = el[target] .. char
+			-- consoleLog({char, target},"blocking")
+		elseif char == "." then 
+			target = "type" 
+	    	if string.len(el[target]) > 1 then 
+	    		if el[target]== "typedef" then 
+	    			el[target] = ""
+	    			el.typedef = true
+	    		else
+	    			el.multitype = true
+	    			el[target] = el[target] .. "|"
+	    		end 
+	    	end
+	    elseif char == "#" then 
+	    	-- target = "id"
+	    	el[target] = el[target].."[]"
+	    	el.isArray = true
+	    elseif char == "?" then
+	    	el.optional = true
+	    elseif char == '"' then
+	    	target="description"
+	    	blocking = not blocking
+	    	-- consoleLog({char},"char is quotes")
+	    elseif char == "$" then
+	    	el.repeating = true
+	    else
+	    	-- consoleLog({target=target,char=char,tag=tag},"parsing element...",3)
+	    	el[target] = el[target] .. char
+	    end
+	end
+	-- consoleLog(el,"jsdoc parsed element",3)
+	return el
+end
+
+function create_jsdoc_lines(node)
+	local result = ""
+	if node.emmet == nil then 
+		-- for example in root: 
+		for i=1,#node.children do 
+			result = result .. create_jsdoc_lines(node.children[i]) .. "\n"
+		end
+		return result 
+	end
+	local first_type = node.emmet.type
+	local i = 1
+	if node.emmet.multitype then 
+		local sep = string.find(node.emmet.type, '|')
+		first_type = string.sub(node.emmet.type, 1, sep-1)
+	end
+	if first_type == "callback" then
+		result = " * @callback ".. node.emmet.name .. "\n"
+		for i=1,#node.children do 
+			result = result .. create_jsdoc_lines(node.children[i]) .. "\n"
+		end
+		return result
+	end
+	-- consoleLog({first_type, multitype=node.emmet.multitype},"first_type")
+	-- if first_type == "typedef" then
+	if node.emmet.typedef then
+		node.typedef = true 
+		result = " * @typedef " .. node.emmet.name .. "\n"
+		result = result .. " * @type {" .. node.emmet.type .."}\n"
+		for i=1,#node.children do 
+			result = result .. create_jsdoc_lines(node.children[i]) .. "\n"
+		end
+		return result 
+	end
+	if node.emmet.type == "" and node.emmet.name == "" and string.len(node.emmet.description) > 0 then
+		result = " * "..node.emmet.description .. "\n"
+		return result
+	end
+	local line_begin = " * @param "
+	-- if node.parent.typedef then
+	if node.parent.emmet~=nil and node.parent.emmet.typedef then 
+		-- consoleLog({node},"typedef found")
+		line_begin = " * @property "
+	end
+	local type = node.emmet.type
+	if node.emmet.multitype then type = "("..type..")" end	
+	if node.emmet.repeating then type = "..." .. type end
+	type = "{"..type.."}"
+	local name = node.emmet.name 
+	if node.parent.emmet ~= nil and not node.parent.emmet.typedef then 
+		name = node.parent.emmet.name
+		if node.parent.emmet.isArray then name = name .. "[]" end
+		name = name .. "." .. node.emmet.name
+	end
+	if node.emmet.optional then name = "["..name.."]" end
+	local desc = node.emmet.description
+	if string.len(desc) < 1 then desc = "${0}" end
+	result = line_begin .. type .. " " .. name .. " - " .. desc .. "\n"
+
+	for i=1, #node.children do 		
+		result = result .. create_jsdoc_lines(node.children[i])
+	end
+	
+	return result 
+end
+
+function create_jsdoc_return(ret)
+	if string.len(ret) < 1 then return "" end
+	local el = parse_jsdoc_element(ret)
+	expand_jsdoc_abbr({emmet = el, children={}})
+	local result = el.type
+	
+	if el.multitype then result = "(".. result .. ")" end
+	if el.name == "promise" then result = "Promise<"..result..">" end
+	-- result = "{".. result .. "}"
+	result = " * @returns {" .. result .. "} " .. el.description .. "\n"
+	return result 
+end
+
+local jsdoc_abbreviations = nil
+
+function load_jsdoc_abbreviations()
+	if jsdoc_abbreviations ~= nil then
+		return jsdoc_abbreviations
+	end
+	local emmet_file = config.ReadRuntimeFile(RTEmmetAbbr, "jsdoc")
+	local emmet_table = {}
+	local key = nil
+	for line in string.gmatch(emmet_file, "(.-)\r?\n") do
+		if key == nil then 
+			key = line
+		else
+			emmet_table[key]=line
+			key = nil
+		end
+	end	
+	jsdoc_abbreviations = emmet_table 
+	return emmet_table
+end
+
+function expand_jsdoc_abbr(node)
+	if node.emmet == nil then
+		for i=1,#node.children do
+			expand_jsdoc_abbr(node.children[i])
+		end
+		return
+	end
+	local abbr = load_jsdoc_abbreviations()
+	-- = {
+		-- o = "Object",
+		-- object = "Object",
+		-- s = "string",
+		-- n = "number",
+		-- b = "boolean"
+	-- }
+	if node.emmet.multitype then
+		local arr = split(node.emmet.type, "|")
+		local type = ""
+		for a=1,#arr do 
+			if node.emmet.isArray then		
+				local bpos = string.find(arr[a], "%[")
+				local short = string.sub(arr[a], 1, bpos -1)
+				if abbr[short]~=nil then arr[a] = abbr[short].."[]" end
+			else 
+				if abbr[arr[a]] ~= nil then arr[a] = abbr[arr[a]] end
+				if a > 1 then type = type .. "|" end
+				type = type .. arr[a]
+			end
+		end
+		node.emmet.type = type
+	elseif node.emmet.isArray then		
+		local bpos = string.find(node.emmet.type, "%[")
+		local short = string.sub(node.emmet.type, 1, bpos -1)
+		if abbr[short]~=nil then node.emmet.type = abbr[short].."[]" end
+	else
+		if abbr[node.emmet.type]~=nil then node.emmet.type = abbr[node.emmet.type] end
+	end
+	for i=1,#node.children do
+		expand_jsdoc_abbr(node.children[i])
+	end
+end
+
+function parse_jsdoc_raw_string(raw)
+	local equalpos = string.find(raw, "=")
+	local str = raw
+	local ret = ""
+	if equalpos ~= nil then 
+		str = string.sub(raw, 1, equalpos -1)
+		ret = string.sub(raw, equalpos +1)
+	end
+	local root = parse_emmet_raw_string(str, true)
+	-- consoleLog({root, str, ret}, "after emmet-raw-parsing",3)
+	create_jsdoc_nodes(root)
+	-- consoleLog(root, "after create_jsdoc_nodes",3)
+	local insert_text = create_jsdoc_lines(root)
+	insert_text = insert_text .. create_jsdoc_return(ret)
+	return insert_text
+end
+
+function create_jsdoc_nodes(node)
+	if node.raw ~= nil then 
+		node.emmet = parse_jsdoc_element(node.raw) 
+		expand_jsdoc_abbr(node)
+	end
+	for i=1,#node.children do
+		create_jsdoc_nodes(node.children[i])
+	end
+end
+
+
+function jsdoc(bp, args)
+	local raw = args[1]
+	local jsdoc_txt = parse_jsdoc_raw_string(raw)		
+	local after_line = bp.Buf:Line(bp.Cursor.Y +1)
+	-- lazy check: 
+	if string.sub(after_line, 1, 2)==" *" then
+	-- we are inside a jsdoc-definition
+	else 
+	-- we are not inside a jsdoc-definition
+		jsdoc_txt = "/**\n"..jsdoc_txt .." */\n"
+	end
+	
+	local lines = {}
+	local count = 0
+	for line in string.gmatch(jsdoc_txt, "(.-)\r?\n") do
+		if string.len(line)>1 then
+			count = count + 1
+			lines[count]=line
+		end
+	end
+	local snippet = create_snippets(lines)
+	local cursor_x, cursor_y = get_cursor_pos(bp)
+	cursor_x = 1
+	local whiteline = ''
+	current_snippet = {}
+	current_snippet.insert_pos = {line = cursor_y, pos = cursor_x}
+	current_snippet.code_lines = snippet.code_lines
+	current_snippet.relative_positions = {}
+	for i=1,#snippet.relative_positions do
+		current_snippet.relative_positions[i]={
+			line = snippet.relative_positions[i].line,
+			pos = snippet.relative_positions[i].pos,	
+			filler_length = snippet.relative_positions[i].filler_length
+		}
+	end
+	current_snippet.whiteline = whiteline
+	current_snippet.whiteline_length = string.len(whiteline)
+	current_snippet.act_position_index = 0
+
+	local insert_string = current_snippet.code_lines[1]
+	for i=2,#current_snippet.code_lines do
+		insert_string = insert_string .."\n".. whiteline .. current_snippet.code_lines[i]
+	end
+	write_snippet_to_buf(bp, cursor_x, cursor_y, word, insert_string)
+	current_bp = bp
+	move_to_current_snippet(bp)
+	
+	-- consoleLog({raw=raw, jsdoc= jsdoc_txt},"jsdoc-emmet", 2)
+	
+end
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- end of jsdoc-emmet
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- edit snippets from within editor
@@ -766,11 +1053,13 @@ function init()
     -- Insert a snippet
     config.MakeCommand("snip", snip_from_terminal, config.NoComplete)
     config.MakeCommand("emmet", emmet, config.NoComplete)
+    config.MakeCommand("jsdoc", jsdoc, config.NoComplete)
     config.MakeCommand("edit-snip", open_snippet_file, config.NoComplete)
     config.MakeCommand("emmet-map", create_emmet_abbreviations_map, config.NoComplete)
     
     config.AddRuntimeFile("sniptab", config.RTHelp, "help/sniptab.md")
-    config.AddRuntimeFile("emmet", config.RTHelp, "help/emmet.md")
+    config.AddRuntimeFile("sniptab", config.RTHelp, "help/emmet.md")
+    config.AddRuntimeFile("sniptab", config.RTHelp, "help/jsdoc.md")
     -- config.AddRuntimeFile("sniptab", RTEmmetAbbr, "emmet/html.emmet")
     config.AddRuntimeFilesFromDirectory("sniptab", RTSnippets, "snippets", "*.snippets")
     config.AddRuntimeFilesFromDirectory("sniptab", RTEmmetAbbr, "emmet", "*.emmet")
@@ -789,57 +1078,73 @@ end
 -- ~~~~~~~~~~~~~~~~~~~~~~~
 
 function preCursorDown(view)
-	clear()
+	clear("cursor_down")
 end
 function preCursorUp(view)
-	clear()
+	clear("cursor_up")
 end
 function preCursorLeft(view)
-	clear()
+	clear("cursor_left")
 end
 function preCursorRight(view)
-	clear()
+	clear("cursor_right")
 end
 function preEscape(view)
-	clear()
+	clear("escape")
 end
 function preInsertNewline(view)
-	clear()
+	clear("enter")
 end
 -- the following should work but doesnt: 
 
 function prePageUp(view)
-	clear()
+	clear("pageup")
 end
 function prePageDown(view)
-	clear()
+	clear("pagedown")
 end
 function preCursorStart(view)
-	clear()
+	clear("cursorstart")
 end
 function preCursorEnd(view)
-	clear()
+	clear("cursorend")
 end
 function preEnd(view)
-	clear()
+	clear("end")
 end
 function preEndOfLine(view)
-	clear()
+	clear("endofline")
 end
 function preStart(view)
-	clear()
+	clear("start")
 end
 function preStartOfLine(view)
-	clear()
+	clear("startofline")
 end
 function preStartOfText(view)
-	clear()
+	clear("startoftext")
 end
 
 
 -- ~~~~~~~~~~~~~~~~~~~~~~~
 -- helper functions
 -- ~~~~~~~~~~~~~~~~~~~~~~~
+
+function split(str, separator)
+	local arr = {""}
+	local index = 1
+	local char = ""
+	for pos = 1, #str do
+		char = string.sub(str,pos,pos)
+		if char == separator then 
+			index = index + 1
+			arr[index] = ""
+		else
+			arr[index]=arr[index]..char
+		end	    
+	end
+	return arr
+end
 
 -- helper function to display booleans:
 function boolstring(bol)

@@ -20,11 +20,20 @@ shortcut for your snippet - example `snip div` to insert a div at current cursor
 
 - open your micro-terminal (`ctrl+e` by default)
 - type your emmet preceded by "emmet " - for example:
-	`>emmet button.load>img`
+>emmet button.load>img
 - if your emmet contains spaces or quotes you have to put it inside quotes (use single outside and double inside)
 - emmet is still not fully ready but works in simpler cases
 - emmet only works for html right now 
-- for further help with emmet see [emmet help page](emmet.md)
+- for further help with emmet see [emmet help page](emmet.md) or in your micro-command `>help emmet`
+
+### jsdoc emmet
+
+- open your micro-terminal (`ctrl+e` by default)
+- type your jsdoc emmet preceded by "jsdoc " - for example:
+>jsdoc player.object>name.string+score.number
+- if your jsdoc-emmet contains spaces or quotes you have to put it inside quotes (use single outside and double inside)
+- for further help with jsdoc-emmet see [jsdoc-emmet help page](jsdoc.md) or in your micro-command `>help jsdoc`
+
 
 ## snippet-definitions
 - a snippet-file for the filetype is placed in the "snippets"-directory of the plugin
@@ -38,7 +47,13 @@ shortcut for your snippet - example `snip div` to insert a div at current cursor
 - for now only one keyword per snippet-definition is allowed
 - keywords in the text have to be first position in a line or preceded by a tab or whitespace to be parsed correctly
 
-## install 
+## alter snippet-definitions
+
+`>edit-snip` in your micro-command-prompt opens the corresponding snippets-file for the current filetype. 
+edit them, save them, continue working - no need to leave micro. 
+
+
+# install 
 install sniptab to your micro, for example go to your plugin directory of micro and clone this repo:
 ```
 cd ~/.config/plug
