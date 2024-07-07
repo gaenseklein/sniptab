@@ -7,8 +7,8 @@
         "License": "GPL3",
 		"Versions": [
 			{
-				"Version": "1.4.0",
-				"Url": "https://github.com/gaenseklein/repfiles/archive/refs/tags/v1.4.0.zip",
+				"Version": "1.4.0",				
+				"Url": "https://github.com/gaenseklein/sniptab/archive/refs/tags/v1.4.0.zip",
 				"Require": {
 					"micro": ">=2.0.8"
 				}
